@@ -60,98 +60,105 @@ int main(int argc, char* argv[])
 {
 	try
 	{
-		for (int i = 0; i < argc; i++)
-		{
-			if (strcmp(argv[i], "/h") == 0 ||
-				strcmp(argv[i], "-h") == 0 ||
-				strcmp(argv[i], "/H") == 0 ||
-				strcmp(argv[i], "-H") == 0 ||
-				strcmp(argv[i], "/?") == 0 ||
-				strcmp(argv[i], "-?") == 0)
-			{
-				std::cout
-				<< "Syntax:\n"
-				<< "    vmake [flags] command_before_files [command_after_files] [flags]\n"
-				<< "Flags:\n"
-				<< "    -h, -?  Show help\n"
-				<< "    -c      Search for .c files instead of .cpp files"
-				<< std::endl;
-				return 0;
-			}
-		}
+		SetConsoleCP(CP_UTF8);
+		SetConsoleOutputCP(CP_UTF8);
 
-		LanguageMode mode;
-		int commandPos;
-		bool endString;
-		if (argc == 4)
+		if (argc < 2)
 		{
-			endString = true;
-			if (strcmp(argv[1], "/c") == 0 || strcmp(argv[1], "-c") == 0 || strcmp(argv[1], "/C") == 0 || strcmp(argv[1], "-C") == 0)
+			std::cerr << "Ogiltigt antal argument" << std::endl;
+			return 1;
+		}
+		
+		LanguageMode mode = M_CPP;
+		std::string token = "NAMN";
+
+		int currArgument = 1;
+
+		// Hantera flaggor
+		for (; currArgument < argc && (argv[currArgument][0] == '/' || argv[currArgument][0] == '-'); currArgument++)
+		{
+			if (strlen(argv[currArgument]) != 2)
 			{
-				commandPos = 2;
-				mode = M_C;
-			}
-			else if (strcmp(argv[3], "/c") == 0 || strcmp(argv[3], "-c") == 0 || strcmp(argv[3], "/C") == 0 || strcmp(argv[3], "-C") == 0)
-			{
-				commandPos = 1;
-				mode = M_C;
-			}
-			else
-			{
-				std::cerr << "Invalid syntax" << std::endl;
+				std::cerr << "Ogiltigt argument: " << argv[currArgument] << std::endl;
 				return 1;
 			}
-		}
-		else if (argc == 3)
-		{
-			if (strcmp(argv[1], "/c") == 0 || strcmp(argv[1], "-c") == 0 || strcmp(argv[1], "/C") == 0 || strcmp(argv[1], "-C") == 0)
+
+			switch (argv[currArgument][1])
 			{
-				endString = false;
-				commandPos = 2;
-				mode = M_C;
+				case 'h':
+				case 'H':
+				case '?':
+				{
+					std::cout
+					<< "Syntax:\n"
+					<< "    vmake [flaggor] kommando\n"
+					<< "Flaggor:\n"
+					<< "    -h, -?   Visa hjälp.\n"
+					<< "    -c       Leta efter .c-filer istället för .cpp-filer.\n"
+					<< "    -t TOKEN Byt ut TOKEN mot listan på de filer som har hittats.\n"
+					<< "             Om denna flagga utelämnas används \"NAMN\"."
+					<< std::endl;
+					return 0;
+				}
+				break;
+				case 'c':
+				case 'C':
+				{
+					mode = M_C;
+				}
+				break;
+				case 't':
+				case 'T':
+				{
+					currArgument++;
+					if (currArgument >= argc)
+					{
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
+						return 1;
+					}
+					token = argv[currArgument];
+				}
+				break;
+				default:
+				{
+					std::cerr << "Ogiltigt argument: " << argv[currArgument] << std::endl;
+					return 1;
+				}
 			}
-			else if (strcmp(argv[2], "/c") == 0 || strcmp(argv[2], "-c") == 0 || strcmp(argv[2], "/C") == 0 || strcmp(argv[2], "-C") == 0)
-			{
-				endString = false;
-				commandPos = 1;
-				mode = M_C;
-			}
-			else
-			{
-				endString = true;
-				commandPos = 1;
-				mode = M_CPP;
-			}
-		}
-		else if (argc == 2)
-		{
-			endString = false;
-			commandPos = 1;
-			mode = M_CPP;
-		}
-		else
-		{
-			std::cerr << "Invalid number of arguments" << std::endl;
-			return 1;
 		}
 
 		std::stringstream ss;
 		addFilenames(ss, getCurrentDirectory(), mode);
 
-		if (endString)
-			system((argv[commandPos] + ss.str() + " " + argv[commandPos + 1]).c_str());
-		else
-			system((argv[commandPos] + ss.str()).c_str());
+		std::stringstream command;
+		if (currArgument < argc)
+		{
+			command << argv[currArgument] << " ";
+			currArgument++;
+		}
+		for (; currArgument < argc; currArgument++)
+		{
+			if (argv[currArgument] == token)
+			{
+				command << ss.str() << " ";
+			}
+			else
+			{
+				command << "\"" << argv[currArgument] << "\" ";
+			}
+		}
+
+		system(command.str().c_str());
 
 		return 0;
 	}
 	catch (const std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		std::cerr << "Fel: " << e.what() << std::endl;
 	}
 	catch (...)
 	{
-		std::cerr << "Unknown error" << std::endl;
+		std::cerr << "Okänt fel" << std::endl;
 	}
-	return -1;
+	return 1;
 }
