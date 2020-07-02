@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <windows.h>
+#include <stdexcept>
 
 enum LanguageMode
 {
@@ -13,7 +14,7 @@ enum LanguageMode
 std::string getCurrentDirectory()
 {
 	char pathname[MAX_PATH] = {};
-	GetCurrentDirectoryA(MAX_PATH, pathname);
+	if (GetCurrentDirectoryA(MAX_PATH, pathname) == 0) throw std::runtime_error("Unable to get current directory");
 	return pathname;
 }
 
@@ -57,88 +58,100 @@ void addFilenames(std::stringstream& ss, const std::string& dir, LanguageMode mo
 
 int main(int argc, char* argv[])
 {
-	for (int i = 0; i < argc; i++)
+	try
 	{
-		if (strcmp(argv[i], "/h") == 0 ||
-			strcmp(argv[i], "-h") == 0 ||
-			strcmp(argv[i], "/H") == 0 ||
-			strcmp(argv[i], "-H") == 0 ||
-			strcmp(argv[i], "/?") == 0 ||
-			strcmp(argv[i], "-?") == 0)
+		for (int i = 0; i < argc; i++)
 		{
-			std::cout
-			<< "Syntax:\n"
-			<< "    vmake [flags] command_before_files [command_after_files] [flags]\n"
-			<< "Flags:\n"
-			<< "    -h, -?  Show help\n"
-			<< "    -c      Search for .c files instead of .cpp files"
-			<< std::endl;
-			return 0;
+			if (strcmp(argv[i], "/h") == 0 ||
+				strcmp(argv[i], "-h") == 0 ||
+				strcmp(argv[i], "/H") == 0 ||
+				strcmp(argv[i], "-H") == 0 ||
+				strcmp(argv[i], "/?") == 0 ||
+				strcmp(argv[i], "-?") == 0)
+			{
+				std::cout
+				<< "Syntax:\n"
+				<< "    vmake [flags] command_before_files [command_after_files] [flags]\n"
+				<< "Flags:\n"
+				<< "    -h, -?  Show help\n"
+				<< "    -c      Search for .c files instead of .cpp files"
+				<< std::endl;
+				return 0;
+			}
 		}
-	}
 
-	LanguageMode mode;
-	int commandPos;
-	bool endString;
-	if (argc == 4)
-	{
-		endString = true;
-		if (strcmp(argv[1], "/c") == 0 || strcmp(argv[1], "-c") == 0 || strcmp(argv[1], "/C") == 0 || strcmp(argv[1], "-C") == 0)
-		{
-			commandPos = 2;
-			mode = M_C;
-		}
-		else if (strcmp(argv[3], "/c") == 0 || strcmp(argv[3], "-c") == 0 || strcmp(argv[3], "/C") == 0 || strcmp(argv[3], "-C") == 0)
-		{
-			commandPos = 1;
-			mode = M_C;
-		}
-		else
-		{
-			std::cerr << "Invalid syntax" << std::endl;
-			return 1;
-		}
-	}
-	else if (argc == 3)
-	{
-		if (strcmp(argv[1], "/c") == 0 || strcmp(argv[1], "-c") == 0 || strcmp(argv[1], "/C") == 0 || strcmp(argv[1], "-C") == 0)
-		{
-			endString = false;
-			commandPos = 2;
-			mode = M_C;
-		}
-		else if (strcmp(argv[2], "/c") == 0 || strcmp(argv[2], "-c") == 0 || strcmp(argv[2], "/C") == 0 || strcmp(argv[2], "-C") == 0)
-		{
-			endString = false;
-			commandPos = 1;
-			mode = M_C;
-		}
-		else
+		LanguageMode mode;
+		int commandPos;
+		bool endString;
+		if (argc == 4)
 		{
 			endString = true;
+			if (strcmp(argv[1], "/c") == 0 || strcmp(argv[1], "-c") == 0 || strcmp(argv[1], "/C") == 0 || strcmp(argv[1], "-C") == 0)
+			{
+				commandPos = 2;
+				mode = M_C;
+			}
+			else if (strcmp(argv[3], "/c") == 0 || strcmp(argv[3], "-c") == 0 || strcmp(argv[3], "/C") == 0 || strcmp(argv[3], "-C") == 0)
+			{
+				commandPos = 1;
+				mode = M_C;
+			}
+			else
+			{
+				std::cerr << "Invalid syntax" << std::endl;
+				return 1;
+			}
+		}
+		else if (argc == 3)
+		{
+			if (strcmp(argv[1], "/c") == 0 || strcmp(argv[1], "-c") == 0 || strcmp(argv[1], "/C") == 0 || strcmp(argv[1], "-C") == 0)
+			{
+				endString = false;
+				commandPos = 2;
+				mode = M_C;
+			}
+			else if (strcmp(argv[2], "/c") == 0 || strcmp(argv[2], "-c") == 0 || strcmp(argv[2], "/C") == 0 || strcmp(argv[2], "-C") == 0)
+			{
+				endString = false;
+				commandPos = 1;
+				mode = M_C;
+			}
+			else
+			{
+				endString = true;
+				commandPos = 1;
+				mode = M_CPP;
+			}
+		}
+		else if (argc == 2)
+		{
+			endString = false;
 			commandPos = 1;
 			mode = M_CPP;
 		}
+		else
+		{
+			std::cerr << "Invalid number of arguments" << std::endl;
+			return 1;
+		}
+
+		std::stringstream ss;
+		addFilenames(ss, getCurrentDirectory(), mode);
+
+		if (endString)
+			system((argv[commandPos] + ss.str() + " " + argv[commandPos + 1]).c_str());
+		else
+			system((argv[commandPos] + ss.str()).c_str());
+
+		return 0;
 	}
-	else if (argc == 2)
+	catch (const std::exception& e)
 	{
-		endString = false;
-		commandPos = 1;
-		mode = M_CPP;
+		std::cerr << e.what() << std::endl;
 	}
-	else
+	catch (...)
 	{
-		std::cerr << "Invalid number of arguments" << std::endl;
-		return 1;
+		std::cerr << "Unknown error" << std::endl;
 	}
-
-	std::stringstream ss;
-	addFilenames(ss, getCurrentDirectory(), mode);
-
-	if (endString)
-		system((argv[commandPos] + ss.str() + " " + argv[commandPos + 1]).c_str());
-	else
-		system((argv[commandPos] + ss.str()).c_str());
-
-	return 0;
+	return -1;
 }
