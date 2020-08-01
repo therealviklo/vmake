@@ -62,15 +62,11 @@ int main(int argc, char* argv[])
 	{
 		SetConsoleCP(CP_UTF8);
 		SetConsoleOutputCP(CP_UTF8);
-
-		if (argc < 2)
-		{
-			std::cerr << "Ogiltigt antal argument" << std::endl;
-			return 1;
-		}
 		
 		LanguageMode mode = M_CPP;
 		std::string token = "NAMN";
+		int bells = 0;
+		int bellInterval = 900;
 
 		int currArgument = 1;
 
@@ -96,7 +92,13 @@ int main(int argc, char* argv[])
 					<< "    -h, -?   Visa hjälp.\n"
 					<< "    -c       Leta efter .c-filer istället för .cpp-filer.\n"
 					<< "    -t TOKEN Byt ut TOKEN mot listan på de filer som har hittats.\n"
-					<< "             Om denna flagga utelämnas används \"NAMN\"."
+					<< "             Om denna flagga utelämnas används \"NAMN\".\n"
+					<< "    -b       Spela ett ljud när kommandot har utförts.\n"
+					<< "             Om denna flagga anges flera gånger spelas ljudet\n"
+					<< "             flera gånger.\n"
+					<< "    -i MS    Om -b anges flera gånger vänter vmake MS\n"
+					<< "             millisekunder mellan varje ljud. Default är\n"
+					<< "             900 millisekunder."
 					<< std::endl;
 					return 0;
 				}
@@ -117,6 +119,56 @@ int main(int argc, char* argv[])
 						return 1;
 					}
 					token = argv[currArgument];
+				}
+				break;
+				case 'b':
+				case 'B':
+				{
+					bells++;
+				}
+				break;
+				case 'i':
+				case 'I':
+				{
+					currArgument++;
+					if (currArgument >= argc)
+					{
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
+						return 1;
+					}
+
+					std::size_t charsRead = 0;
+					try
+					{
+						bellInterval = std::stoi(argv[currArgument], &charsRead);
+					}
+					catch (std::invalid_argument)
+					{
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
+						std::cerr << "(Antalet millisekunder är inte ett giltigt heltal)" << std::endl;
+						return 1;
+					}
+					catch (std::out_of_range)
+					{
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
+						std::cerr << "(Antalet millisekunder får inte plats i en int)" << std::endl;
+						return 1;
+					}
+
+					// Ser till att det inte finns text efter talet
+					if (charsRead != strlen(argv[currArgument]))
+					{
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
+						std::cerr << "(Antalet millisekunder är inte ett giltigt heltal)" << std::endl;
+						return 1;
+					}
+
+					if (bellInterval < 0)
+					{
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
+						std::cerr << "(Antalet millisekunder är mindre än noll)" << std::endl;
+						return 1;
+					}
 				}
 				break;
 				default:
@@ -148,9 +200,15 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		system(command.str().c_str());
+		int returnValue = system(command.str().c_str());
 
-		return 0;
+		for (int i = 0; i < bells; i++)
+		{
+			if (i > 0) Sleep(bellInterval);
+			MessageBeep(MB_OK);
+		}
+
+		return returnValue;
 	}
 	catch (const std::exception& e)
 	{
