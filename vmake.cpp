@@ -2,21 +2,19 @@
 #include <string>
 #include <iostream>
 #include <sstream>
-#include <windows.h>
 #include <stdexcept>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 enum struct LanguageMode
 {
 	c,
 	cpp
 };
-
-std::string getCurrentDirectory()
-{
-	char pathname[MAX_PATH] = {};
-	if (GetCurrentDirectoryA(MAX_PATH, pathname) == 0) throw std::runtime_error("Unable to get current directory");
-	return pathname;
-}
 
 bool endsWith(const std::string& str, const std::string& ending)
 {
@@ -34,34 +32,32 @@ bool endsWith(const std::string& str, const std::string& ending)
 
 void addFilenames(std::stringstream& ss, const std::string& dir, LanguageMode mode)
 {
-	WIN32_FIND_DATAA findData;
-	HANDLE findHandle = FindFirstFileA((dir + "\\*").c_str(), &findData);
-	if (findHandle == INVALID_HANDLE_VALUE) return;
-
-	do
+	using namespace std::string_literals;
+	for (const auto& f : std::filesystem::recursive_directory_iterator(dir))
 	{
-		if (findData.cFileName != std::string(".") && findData.cFileName != std::string(".."))
+		if (!f.is_directory())
 		{
-			if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			const auto& path = f.path();
+			const auto pathString = path.string();
+			if (pathString != "."s && pathString != ".."s)
 			{
-				addFilenames(ss, dir + "\\" + findData.cFileName, mode);
-			}
-			else if (endsWith(findData.cFileName, mode == M_C ? ".c" : ".cpp"))
-			{
-				ss << " \"" << dir << "\\" << findData.cFileName << "\"";
+				if (endsWith(pathString, mode == LanguageMode::c ? ".c" : ".cpp"))
+				{
+					ss << " \"" << (dir / path) << "\"";
+				}
 			}
 		}
-	} while (FindNextFileA(findHandle, &findData));
-
-	FindClose(findHandle);
+	}
 }
 
 int main(int argc, char* argv[])
 {
 	try
 	{
+#ifdef _WIN32
 		SetConsoleCP(CP_UTF8);
 		SetConsoleOutputCP(CP_UTF8);
+#endif
 		
 		LanguageMode mode = LanguageMode::cpp;
 		std::string token = "NAMN";
@@ -75,7 +71,7 @@ int main(int argc, char* argv[])
 		{
 			if (strlen(argv[currArgument]) != 2)
 			{
-				std::cerr << "Ogiltigt argument: " << argv[currArgument] << std::endl;
+				std::cerr << "Ogiltigt argument: " << argv[currArgument] << '\n';
 				return 1;
 			}
 
@@ -99,7 +95,7 @@ int main(int argc, char* argv[])
 					<< "    -i MS    Om -b anges flera gånger vänter vmake MS\n"
 					<< "             millisekunder mellan varje ljud. Default är\n"
 					<< "             900 millisekunder."
-					<< std::endl;
+					<< '\n';
 					return 0;
 				}
 				break;
@@ -115,7 +111,7 @@ int main(int argc, char* argv[])
 					currArgument++;
 					if (currArgument >= argc)
 					{
-						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << '\n';
 						return 1;
 					}
 					token = argv[currArgument];
@@ -133,7 +129,7 @@ int main(int argc, char* argv[])
 					currArgument++;
 					if (currArgument >= argc)
 					{
-						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << '\n';
 						return 1;
 					}
 
@@ -144,43 +140,43 @@ int main(int argc, char* argv[])
 					}
 					catch (std::invalid_argument)
 					{
-						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
-						std::cerr << "(Antalet millisekunder är inte ett giltigt heltal)" << std::endl;
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << '\n';
+						std::cerr << "(Antalet millisekunder är inte ett giltigt heltal)" << '\n';
 						return 1;
 					}
 					catch (std::out_of_range)
 					{
-						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
-						std::cerr << "(Antalet millisekunder får inte plats i en int)" << std::endl;
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << '\n';
+						std::cerr << "(Antalet millisekunder får inte plats i en int)" << '\n';
 						return 1;
 					}
 
 					// Ser till att det inte finns text efter talet
 					if (charsRead != strlen(argv[currArgument]))
 					{
-						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
-						std::cerr << "(Antalet millisekunder är inte ett giltigt heltal)" << std::endl;
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << '\n';
+						std::cerr << "(Antalet millisekunder är inte ett giltigt heltal)" << '\n';
 						return 1;
 					}
 
 					if (bellInterval < 0)
 					{
-						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << std::endl;
-						std::cerr << "(Antalet millisekunder är mindre än noll)" << std::endl;
+						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << '\n';
+						std::cerr << "(Antalet millisekunder är mindre än noll)" << '\n';
 						return 1;
 					}
 				}
 				break;
 				default:
 				{
-					std::cerr << "Ogiltigt argument: " << argv[currArgument] << std::endl;
+					std::cerr << "Ogiltigt argument: " << argv[currArgument] << '\n';
 					return 1;
 				}
 			}
 		}
 
 		std::stringstream ss;
-		addFilenames(ss, getCurrentDirectory(), mode);
+		addFilenames(ss, std::filesystem::current_path().string(), mode);
 
 		std::stringstream command;
 		if (currArgument < argc)
@@ -204,19 +200,23 @@ int main(int argc, char* argv[])
 
 		for (int i = 0; i < bells; i++)
 		{
-			if (i > 0) Sleep(bellInterval);
+			if (i > 0) std::this_thread::sleep_for(std::chrono::milliseconds(bellInterval));
+#ifdef _WIN32
 			MessageBeep(MB_OK);
+#else
+			std::cout << '\a';
+#endif
 		}
 
 		return returnValue;
 	}
 	catch (const std::exception& e)
 	{
-		std::cerr << "Fel: " << e.what() << std::endl;
+		std::cerr << "Fel: " << e.what() << '\n';
 	}
 	catch (...)
 	{
-		std::cerr << "Okänt fel" << std::endl;
+		std::cerr << "Okänt fel" << '\n';
 	}
 	return 1;
 }
