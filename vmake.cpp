@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <filesystem>
+#include <cstring>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -69,7 +70,7 @@ int main(int argc, char* argv[])
 		// Hantera flaggor
 		for (; currArgument < argc && (argv[currArgument][0] == '/' || argv[currArgument][0] == '-'); currArgument++)
 		{
-			if (strlen(argv[currArgument]) != 2)
+			if (std::strlen(argv[currArgument]) != 2)
 			{
 				std::cerr << "Ogiltigt argument: " << argv[currArgument] << '\n';
 				return 1;
@@ -152,7 +153,7 @@ int main(int argc, char* argv[])
 					}
 
 					// Ser till att det inte finns text efter talet
-					if (charsRead != strlen(argv[currArgument]))
+					if (charsRead != std::strlen(argv[currArgument]))
 					{
 						std::cerr << "Felaktig användning av argument: " << argv[currArgument - 1] << '\n';
 						std::cerr << "(Antalet millisekunder är inte ett giltigt heltal)" << '\n';
