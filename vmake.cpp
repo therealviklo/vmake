@@ -5,10 +5,10 @@
 #include <windows.h>
 #include <stdexcept>
 
-enum LanguageMode
+enum struct LanguageMode
 {
-	M_C,
-	M_CPP
+	c,
+	cpp
 };
 
 std::string getCurrentDirectory()
@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
 		SetConsoleCP(CP_UTF8);
 		SetConsoleOutputCP(CP_UTF8);
 		
-		LanguageMode mode = M_CPP;
+		LanguageMode mode = LanguageMode::cpp;
 		std::string token = "NAMN";
 		int bells = 0;
 		int bellInterval = 900;
@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
 				case 'c':
 				case 'C':
 				{
-					mode = M_C;
+					mode = LanguageMode::c;
 				}
 				break;
 				case 't':
