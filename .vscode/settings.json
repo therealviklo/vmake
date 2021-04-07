@@ -43,6 +43,21 @@
 		"xstring": "cpp",
 		"xtr1common": "cpp",
 		"xutility": "cpp",
-		"filesystem": "cpp"
+		"filesystem": "cpp",
+		"algorithm": "cpp",
+		"bit": "cpp",
+		"chrono": "cpp",
+		"clocale": "cpp",
+		"ctime": "cpp",
+		"iomanip": "cpp",
+		"locale": "cpp",
+		"ratio": "cpp",
+		"stop_token": "cpp",
+		"thread": "cpp",
+		"vector": "cpp",
+		"xlocbuf": "cpp",
+		"xlocmes": "cpp",
+		"xlocmon": "cpp",
+		"xloctime": "cpp"
 	}
 }

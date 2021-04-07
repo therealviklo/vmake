@@ -26,6 +26,9 @@ int main(int argc, char* argv[])
 	SetConsoleCP(CP_UTF8);
 	SetConsoleOutputCP(CP_UTF8);
 #endif
+
+	bool verbose = true;
+
 	try
 	{
 		int arg = 1;
@@ -82,6 +85,7 @@ int main(int argc, char* argv[])
 						"                 kompileringen är klar.\n"
 						"    -i MS        Ange intervallet för plingningar\n"
 						"                 från -b.\n"
+						"    -q           Skriv inte ut något i konsolen.\n"
 					);
 				}
 				return EXIT_SUCCESS;
@@ -111,8 +115,9 @@ int main(int argc, char* argv[])
 				case 'x':
 				{
 					advanceArg();
-					objs += ' ';
+					objs += " \"";
 					objs += argv[arg];
+					objs += '\"';
 				}
 				break;
 				case 'b':
@@ -135,20 +140,27 @@ int main(int argc, char* argv[])
 				case 'S':
 				{
 					advanceArg();
-					srcArgs += ' ';
+					srcArgs += " \"";
 					srcArgs += argv[arg];
+					srcArgs += '\"';
 				}
 				break;
 				case 'L':
 				{
 					advanceArg();
-					lnkArgs += ' ';
+					lnkArgs += " \"";
 					lnkArgs += argv[arg];
+					lnkArgs += '\"';
+				}
+				break;
+				case 'q':
+				{
+					verbose = false;
 				}
 				break;
 				default:
 				{
-					std::printf("Okänt argument: %s\n", argv[arg]);
+					if (verbose) std::printf("Okänt argument: %s\n", argv[arg]);
 				}
 				return EXIT_FAILURE;
 			}
@@ -156,7 +168,7 @@ int main(int argc, char* argv[])
 
 		if (arg >= argc)
 		{
-			std::puts("Ingen kompilator specificerades.");
+			if (verbose) std::puts("Ingen kompilator angavs.");
 			return EXIT_FAILURE;
 		}
 		const std::string compiler = argv[arg++];
@@ -185,35 +197,37 @@ int main(int argc, char* argv[])
 		for (size_t i = 0; i < files.size(); i++)
 		{
 			const std::string obji = files[i].path().stem().string() + objectExt;
-			objs += ' ';
+			objs += " \"";
 			objs += obji;
+			objs += '\"';
 
-			std::printf("(%zu/%zu) %s", i + 1, files.size(), files[i].path().string().c_str());
+			if (verbose) std::printf("(%zu/%zu) %s", i + 1, files.size(), files[i].path().string().c_str());
 			if (!std::filesystem::exists(obji) || files[i].last_write_time() > std::filesystem::last_write_time(obji))
 			{
-				std::putchar('\n');
+				if (verbose) std::putchar('\n');
 				std::system((
 					compiler +
-					" "s +
+					" \""s +
 					files[i].path().string() +
-					" -c -o "s +
+					"\" -c -o \""s +
 					obji +
+					"\""s +
 					compArgs +
 					srcArgs
 				).c_str());
 			}
 			else
 			{
-				std::puts(" (Skippar)");
+				if (verbose) std::puts(" (Skippar)");
 			}
 		}
 
-		std::puts("Länkar");
+		if (verbose) std::puts("Länkar");
 
 		std::system((
 			compiler +
 			objs +
-			(output.empty() ? ""s : " -o "s + output) +
+			(output.empty() ? ""s : " -o \""s + output + "\""s) +
 			compArgs +
 			lnkArgs
 		).c_str());
@@ -233,12 +247,12 @@ int main(int argc, char* argv[])
 	}
 	catch (const std::exception& e)
 	{
-		std::printf("Fel: %s\n", e.what());
+		if (verbose) std::printf("Fel: %s\n", e.what());
 		return EXIT_FAILURE;
 	}
 	catch (...)
 	{
-		std::puts("Okänt fel");
+		if (verbose) std::puts("Okänt fel");
 		return EXIT_FAILURE;
 	}
 	return EXIT_SUCCESS;
