@@ -11,6 +11,15 @@
 
 using namespace std::literals;
 
+bool stringInVector(const std::string& str, const std::vector<std::string>& v)
+{
+	for (const auto& i : v)
+	{
+		if (i == str) return true;
+	}
+	return false;
+}
+
 int main(int argc, char* argv[])
 {
 #ifdef _WIN32
@@ -35,6 +44,9 @@ int main(int argc, char* argv[])
 		std::string objs;
 		std::uintmax_t bells = 0;
 		unsigned long long ms = 50;
+		std::vector<std::string> skipPaths;
+		std::string srcArgs;
+		std::string lnkArgs;
 
 		for (; arg < argc; arg++)
 		{
@@ -48,19 +60,28 @@ int main(int argc, char* argv[])
 						"Syntax:\n"
 						"    vmake [flaggor] kompilator [kompilatorflaggor]\n"
 						"Flaggor:\n"
-						"    -h, -?      Visa hjälp.\n"
-						"    -e ÄNDELSE  Ange en filändelse som ska sökas\n"
-						"                efter. Default är \".cpp\".\n"
-						"    -o FILNAMN  Ange programmets namn. Default är\n"
-						"                kompilatorns default.\n"
-						"    -O ÄNDELSE  Ange objektfiländelsen. Default\n"
-						"                är \".o\".\n"
-						"    -x FILNAMN  Lägg till en extra objektfil som\n"
-						"                också ska länkas in i programmet.\n"
-						"    -b          Spela ett plingljud när\n"
-						"                kompileringen är klar.\n"
-						"    -i MS       Ange intervallet för plingningar\n"
-						"                från -b.\n"
+						"    -h, -?       Visa hjälp.\n"
+						"    -o FILNAMN   Ange programmets namn. Default är\n"
+						"                 kompilatorns default.\n"
+						"    -e ÄNDELSE   Ange en filändelse som ska sökas\n"
+						"                 efter. Default är \".cpp\".\n"
+						"    -O ÄNDELSE   Ange objektfiländelsen. Default\n"
+						"                 är \".o\".\n"
+						"    -x FILNAMN   Lägg till en extra objektfil som\n"
+						"                 också ska länkas in i programmet.\n"
+						"    -s FILNAMN   Skippa en källkodsfil.\n"
+						"    -S ARGUMENT  Ange ett argument som endast\n"
+						"                 ska användas när källkodsfiler"
+						"                 ska kompileras till\n"
+						"                 objektsfiler.\n"
+						"    -L ARGUMENT  Ange ett argument som endast\n"
+						"                 ska användas när objektsfiler"
+						"                 ska länkas till det slutgiltiga\n"
+						"                 programmet.\n"
+						"    -b           Spela ett plingljud när\n"
+						"                 kompileringen är klar.\n"
+						"    -i MS        Ange intervallet för plingningar\n"
+						"                 från -b.\n"
 					);
 				}
 				return EXIT_SUCCESS;
@@ -105,6 +126,26 @@ int main(int argc, char* argv[])
 					ms = std::stoull(argv[arg]);
 				}
 				break;
+				case 's':
+				{
+					advanceArg();
+					skipPaths.emplace_back(std::filesystem::canonical(std::filesystem::path(argv[arg])));
+				}
+				break;
+				case 'S':
+				{
+					advanceArg();
+					srcArgs += ' ';
+					srcArgs += argv[arg];
+				}
+				break;
+				case 'L':
+				{
+					advanceArg();
+					lnkArgs += ' ';
+					lnkArgs += argv[arg];
+				}
+				break;
 				default:
 				{
 					std::printf("Okänt argument: %s\n", argv[arg]);
@@ -133,12 +174,10 @@ int main(int argc, char* argv[])
 			const std::string ext = i.path().extension().string();
 			if (ext.size() > 1)
 			{
-				for (const auto& j : extensions)
+				if (stringInVector(ext, extensions) &&
+					!stringInVector(std::filesystem::canonical(i.path()).string(), skipPaths))
 				{
-					if (j == ext)
-					{
-						files.emplace_back(i.path());
-					}
+					files.emplace_back(i.path());
 				}
 			}
 		}
@@ -159,7 +198,8 @@ int main(int argc, char* argv[])
 					files[i].path().string() +
 					" -c -o "s +
 					obji +
-					compArgs
+					compArgs +
+					srcArgs
 				).c_str());
 			}
 			else
@@ -174,7 +214,8 @@ int main(int argc, char* argv[])
 			compiler +
 			objs +
 			(output.empty() ? ""s : " -o "s + output) +
-			compArgs
+			compArgs +
+			lnkArgs
 		).c_str());
 
 		for (unsigned long long i = 0; i < bells; i++)
