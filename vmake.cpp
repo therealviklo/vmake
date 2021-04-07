@@ -71,11 +71,11 @@ int main(int argc, char* argv[])
 						"                 också ska länkas in i programmet.\n"
 						"    -s FILNAMN   Skippa en källkodsfil.\n"
 						"    -S ARGUMENT  Ange ett argument som endast\n"
-						"                 ska användas när källkodsfiler"
+						"                 ska användas när källkodsfiler\n"
 						"                 ska kompileras till\n"
 						"                 objektsfiler.\n"
 						"    -L ARGUMENT  Ange ett argument som endast\n"
-						"                 ska användas när objektsfiler"
+						"                 ska användas när objektsfiler\n"
 						"                 ska länkas till det slutgiltiga\n"
 						"                 programmet.\n"
 						"    -b           Spela ett plingljud när\n"
@@ -129,7 +129,7 @@ int main(int argc, char* argv[])
 				case 's':
 				{
 					advanceArg();
-					skipPaths.emplace_back(std::filesystem::canonical(std::filesystem::path(argv[arg])));
+					skipPaths.emplace_back(std::filesystem::canonical(std::filesystem::path(argv[arg])).string());
 				}
 				break;
 				case 'S':
