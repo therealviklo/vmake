@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <thread>
 #include <chrono>
+#include <fstream>
+#include <algorithm>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -13,11 +15,108 @@ using namespace std::literals;
 
 bool stringInVector(const std::string& str, const std::vector<std::string>& v)
 {
-	for (const auto& i : v)
-	{
-		if (i == str) return true;
-	}
-	return false;
+	return std::find(v.begin(), v.end(), str) != v.end();
+}
+
+bool isModified(std::filesystem::file_time_type objt, const std::filesystem::path& file)
+{
+	auto loop = [](
+		auto loop, 
+		std::filesystem::file_time_type objt,
+		const std::filesystem::path& file,
+		std::vector<std::filesystem::path>& cache
+	) -> bool {
+		if (std::find(cache.begin(), cache.end(), file) != cache.end())
+			return false;
+		cache.push_back(file);
+		if (objt < std::filesystem::last_write_time(file))
+			return true;
+
+		std::vector<char> fc;
+		size_t size = 0;
+		{
+			std::ifstream fs(file, std::ios::binary);
+			fs.seekg(0, std::ios::end);
+			size = fs.tellg();
+			fc.resize(size);
+			fs.seekg(0, std::ios::beg);
+			fs.read(&fc[0], size);
+		}
+
+		std::vector<std::filesystem::path> deps;
+		size_t pos = 0;
+		auto skipRest = [&]{
+			while (pos < size)
+			{
+				if (fc[pos] == '\n')
+				{
+					pos++;
+					break;
+				}
+				else if (fc[pos] == '\r')
+				{
+					pos++;
+					if (pos < size && fc[pos] == '\n') pos++;
+					break;
+				}
+				else
+				{
+					pos++;
+				}
+			}
+		};
+		auto skipSeq = [&](const char* seq) -> bool {
+			while (pos < size)
+			{
+				if (*seq == '\0') return true;
+				if (*seq != fc[pos]) return false;
+				seq++;
+				pos++;
+			}
+			return false;
+		};
+		auto skipWS = [&]{
+			while (pos < size && (
+				fc[pos] == ' ' ||
+				fc[pos] == '\t'
+			)) pos++;
+		};
+		if (!skipSeq("\xEF\xBB\xBF")) pos = 0;
+		while (pos < size)
+		{
+			if (fc[pos++] == '#')
+			{
+				skipWS();
+				if (skipSeq("include"))
+				{
+					skipWS();
+					if (skipSeq("\""))
+					{
+						std::string fn;
+						while (pos < size && fc[pos] != '\"')
+						{
+							fn += fc[pos++];
+						}
+						if (pos < size)
+						{
+							deps.emplace_back(std::filesystem::path(fn));
+						}
+					}
+				}
+			}
+			skipRest();
+		}
+
+		for (const auto& i : deps)
+		{
+			if (loop(loop, objt, file.parent_path() / i, cache))
+				return true;
+		}
+
+		return false;
+	};
+	std::vector<std::filesystem::path> cache;
+	return loop(loop, objt, file, cache);
 }
 
 int main(int argc, char* argv[])
@@ -180,6 +279,7 @@ int main(int argc, char* argv[])
 			compArgs += argv[arg];
 		}
 
+		size_t totFiles = 0;
 		std::vector<std::filesystem::directory_entry> files;
 		for (const auto& i : std::filesystem::recursive_directory_iterator("."))
 		{
@@ -189,37 +289,37 @@ int main(int argc, char* argv[])
 				if (stringInVector(ext, extensions) &&
 					!stringInVector(std::filesystem::canonical(i.path()).string(), skipPaths))
 				{
-					files.emplace_back(i.path());
+					const std::string obji = (i.path().parent_path() / i.path().stem()).string() + objectExt;
+					objs += " \"";
+					objs += obji;
+					objs += '\"';
+
+					totFiles++;
+					if (!std::filesystem::exists(obji) || isModified(std::filesystem::last_write_time(obji), i))
+					{
+						files.emplace_back(i.path());
+					}
 				}
 			}
 		}
 
+		std::printf("%zu av %zu filer måste kompileras.\n", files.size(), totFiles);
+
 		for (size_t i = 0; i < files.size(); i++)
 		{
-			const std::string obji = files[i].path().stem().string() + objectExt;
-			objs += " \"";
-			objs += obji;
-			objs += '\"';
+			const std::string obji = (files[i].path().parent_path() / files[i].path().stem()).string() + objectExt;
 
-			if (verbose) std::printf("(%zu/%zu) %s", i + 1, files.size(), files[i].path().string().c_str());
-			if (!std::filesystem::exists(obji) || files[i].last_write_time() > std::filesystem::last_write_time(obji))
-			{
-				if (verbose) std::putchar('\n');
-				std::system((
-					compiler +
-					" \""s +
-					files[i].path().string() +
-					"\" -c -o \""s +
-					obji +
-					"\""s +
-					compArgs +
-					srcArgs
-				).c_str());
-			}
-			else
-			{
-				if (verbose) std::puts(" (Skippar)");
-			}
+			if (verbose) std::printf("(%zu/%zu) %s\n", i + 1, files.size(), files[i].path().string().c_str());
+			std::system((
+				compiler +
+				" \""s +
+				files[i].path().string() +
+				"\" -c -o \""s +
+				obji +
+				"\""s +
+				compArgs +
+				srcArgs
+			).c_str());
 		}
 
 		if (verbose) std::puts("Länkar");
